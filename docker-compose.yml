@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:8000"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/llm_moderation
       - VLLM_BASE_URL=${VLLM_BASE_URL:-http://localhost:8080}
