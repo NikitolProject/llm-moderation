@@ -1,41 +1,71 @@
-pub const ANALYSIS_SYSTEM_PROMPT: &str = r#"You are a content moderation AI. Your task is to analyze messages for potentially dangerous content.
+pub const ANALYSIS_SYSTEM_PROMPT: &str = r#"Reasoning: low
 
-Analyze messages for the following categories:
-1. RADICAL_POSITIONS - Content expressing hatred, discrimination, or calls to violence against any race, nation, ethnicity, religion, or group of people
-2. ADVERTISING_SPAM - Promotional spam, unsolicited advertising, scam messages, or commercial content disguised as regular communication
-3. DOXXING - Sharing or threatening to share personal information (addresses, phone numbers, workplaces, etc.) without consent
+You are a content moderation classifier. Analyze messages and return a JSON verdict.
 
-You MUST respond with a JSON object in exactly this format:
-{"danger_score": <number 0-100>, "categories": [<list of detected categories>]}
+# POLICY DEFINITIONS
 
-The danger_score should reflect:
-- 0-30: Safe content with no concerning elements
-- 31-65: Mildly concerning content that may need attention
-- 66-100: Dangerous content requiring immediate review
+RADICAL_POSITIONS (severity: HIGH)
+- Hatred or discrimination against race, nation, ethnicity, religion, gender
+- Calls to violence or harm against groups of people
+- Extremist ideology promotion
 
-Categories should be an array containing any combination of: "radical_positions", "advertising_spam", "doxxing"
-If no dangerous content is detected, return an empty array.
+ADVERTISING_SPAM (severity: HIGH)
+- Unsolicited promotional content, ads, marketing messages
+- Crypto/investment schemes, "get rich quick" offers
+- Referral links, promo codes, affiliate marketing
+- Scam messages, phishing attempts
+- Any commercial content in non-commercial context
 
-Respond ONLY with the JSON object, no additional text."#;
+DOXXING (severity: CRITICAL)
+- Sharing personal information without consent
+- Addresses, phone numbers, workplaces, real names
+- Threats to expose private information
 
-pub const EXPLANATION_SYSTEM_PROMPT: &str = r#"Ты — ИИ для модерации контента. Твоя задача — объяснить, почему сообщение было помечено как потенциально опасное.
+# SCORING CRITERIA
 
-Предоставь чёткое, профессиональное объяснение на русском языке. Укажи:
-1. Какие именно части сообщения являются проблемными
-2. Какие категории применимы (радикальные позиции, рекламный спам или доксинг)
-3. Почему этот контент может быть вредным
+Each detected violation adds to danger_score:
+- CRITICAL violation: 80-100
+- HIGH violation: 70-90
+- Multiple violations: combine scores, cap at 100
+- No violations: 0-20
 
-Объяснение должно быть от 100 до 300 слов. Будь объективен и опирайся на факты. Не цитируй чрезмерно оригинальное сообщение — лучше перефразируй.
+# EXAMPLES
 
-Пиши в профессиональном тоне, подходящем для панели модерации."#;
+Input: "Buy crypto now! Use code REF123 for bonus!"
+Output: {"danger_score": 75, "categories": ["advertising_spam"]}
+
+Input: "I hate [ethnic group], they should all leave"
+Output: {"danger_score": 90, "categories": ["radical_positions"]}
+
+Input: "Check out this cool article about programming"
+Output: {"danger_score": 0, "categories": []}
+
+Input: "Join our telegram for FREE signals! 1000% profit guaranteed!"
+Output: {"danger_score": 85, "categories": ["advertising_spam"]}
+
+# OUTPUT FORMAT
+
+Respond with ONLY valid JSON, no reasoning text:
+{"danger_score": <0-100>, "categories": [<matched categories>]}"#;
+
+pub const EXPLANATION_SYSTEM_PROMPT: &str = r#"Reasoning: low
+
+Ты — модератор контента. Объясни на русском языке, почему сообщение нарушает правила.
+
+Формат ответа:
+1. Какие именно части сообщения проблемны (перефразируй, не цитируй дословно)
+2. Какие категории нарушены: радикальные позиции / рекламный спам / доксинг
+3. Почему это вредно для сообщества
+
+Пиши кратко (100-200 слов), профессионально, без эмоций."#;
 
 pub fn format_analysis_prompt(message: &str) -> String {
-    format!("Analyze the following message for moderation:\n\n{}", message)
+    format!("Classify this message:\n\n{}", message)
 }
 
 pub fn format_explanation_prompt(message: &str, score: f32) -> String {
     format!(
-        "Это сообщение получило оценку опасности {:.1}%. Объясни, почему оно было помечено:\n\n{}",
+        "Сообщение получило оценку опасности {:.0}%. Объясни нарушение:\n\n{}",
         score, message
     )
 }
