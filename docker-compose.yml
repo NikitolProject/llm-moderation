@@ -1,0 +1,45 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/llm_moderation
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://localhost:8080}
+      - VLLM_MODEL=${VLLM_MODEL:-GPT-OSS:20b}
+      - API_KEY=${API_KEY:-your-secret-api-key}
+      - DANGER_THRESHOLD=${DANGER_THRESHOLD:-65.0}
+      - PORT=8000
+      - RUST_LOG=llm_moderation=info,tower_http=info
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=llm_moderation
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
